@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Language Translation Tool</title>
+  <style>
+    /* —— original style block (unchanged for brevity) —— */
+    body{font-family:sans-serif;background:#f4f4f4;display:flex;justify-content:center;
+         align-items:center;min-height:100vh;margin:0;padding:20px;}
+    .container{max-width:48rem;width:100%;margin:auto;padding:1rem;display:flex;
+      flex-direction:column;gap:1.5rem;background:#fff;border-radius:.5rem;
+      box-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -1px rgba(0,0,0,.06);}
+    h2{font-size:1.5rem;font-weight:600;color:#1a202c;text-align:center;}
+    .form-group{display:flex;flex-direction:column;gap:.5rem;}
+    label{font-size:.875rem;font-weight:500;color:#4a5568;}
+    textarea,select{width:100%;padding:.75rem 1rem;border:1px solid #d2d6dc;
+      border-radius:.375rem;outline:none;transition:.2s;}
+    textarea:focus,select:focus{border-color:#6366f1;box-shadow:0 0 0 2px rgba(99,102,241,.5);}
+    textarea.readonly{background:#f9fafb;}
+    .grid-cols-2{display:grid;grid-template-columns:1fr;gap:1rem;}
+    @media(min-width:640px){.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    button{width:100%;padding:.5rem 1rem;border-radius:.375rem;color:#fff;font-weight:500;
+      border:none;cursor:pointer;transition:.2s;}
+    button.primary{background:#4f46e5;}button.primary:hover:not(:disabled){background:#4338ca;}
+    button.primary:disabled{background:#a5b4fc;cursor:not-allowed;}
+    .relative{position:relative;}
+    .absolute-buttons{position:absolute;top:.5rem;right:.5rem;display:flex;gap:.5rem;}
+    .action-button{padding:.25rem;background:#e5e7eb;border-radius:.375rem;border:none;
+      cursor:pointer;transition:.2s;color:#1a202c;}
+    .action-button:hover{background:#d1d5db;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Language Translation Tool</h2>
+
+    <!-- source text -->
+    <div class="form-group">
+      <label for="source-text">Source Text</label>
+      <textarea id="source-text" rows="5" placeholder="Enter text to translate…"></textarea>
+    </div>
+
+    <!-- language pickers -->
+    <div class="grid-cols-2">
+      <div class="form-group">
+        <label for="source-lang">From</label>
+        <select id="source-lang"></select>
+      </div>
+      <div class="form-group">
+        <label for="target-lang">To</label>
+        <select id="target-lang"></select>
+      </div>
+    </div>
+
+    <!-- button -->
+    <button id="translate-button" class="primary">Translate</button>
+
+    <!-- result -->
+    <div class="form-group">
+      <label for="translated-text">Translated Text</label>
+      <div class="relative">
+        <textarea id="translated-text" rows="5" readonly class="readonly"
+                  placeholder="Translation will appear here…"></textarea>
+        <div class="absolute-buttons">
+          <button id="copy-button" class="action-button" aria-label="Copy">Copy</button>
+          <button id="play-button" class="action-button" aria-label="Play">Play</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* 1. basic data */
+    const langs = [
+      {code:'auto',name:'Auto-detect'},
+      {code:'en',name:'English'},
+      {code:'es',name:'Spanish'},
+      {code:'fr',name:'French'},
+      {code:'de',name:'German'},
+      {code:'zh',name:'Chinese'},
+      {code:'ja',name: 'Japanese'},
+      {code:'hi',name:'Hindi'},
+      {code:'ar',name:'Arabic'}
+    ];
+
+    /* 2. DOM refs */
+    const srcTxt = document.getElementById('source-text');
+    const srcSel = document.getElementById('source-lang');
+    const tgtSel = document.getElementById('target-lang');
+    const outTxt = document.getElementById('translated-text');
+    const btn    = document.getElementById('translate-button');
+    const copy   = document.getElementById('copy-button');
+    const play   = document.getElementById('play-button');
+
+    /* 3. init <select>s */
+    langs.forEach(l=>{
+      srcSel.add(new Option(l.name,l.code));
+      tgtSel.add(new Option(l.name,l.code));
+    });
+    srcSel.value='auto'; tgtSel.value='en';
+
+    /* 4. helpers */
+    const setBusy = b => {btn.textContent=b?'Translating…':'Translate';btn.disabled=b;};
+
+    /* 5. translation using Google web endpoint */
+    async function translate(text, from, to){
+      const url =
+     `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}`+
+     `&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('Network error');
+      const data = await res.json();           // data[0][0][0] = translated text
+      return data[0].map(seg=>seg[0]).join('');
+    }
+
+    /* 6. events */
+    btn.onclick = async ()=>{
+      const q=srcTxt.value.trim();
+      if(!q) return;
+      setBusy(true);
+      try{
+        const result = await translate(q, srcSel.value, tgtSel.value);
+        outTxt.value = result;
+      }catch(e){
+        console.error(e);
+        outTxt.value='Translation error.';
+      }finally{ setBusy(false); }
+    };
+    copy.onclick = ()=> navigator.clipboard.writeText(outTxt.value);
+    play.onclick = ()=>{
+      const u=new SpeechSynthesisUtterance(outTxt.value);
+      u.lang=tgtSel.value; speechSynthesis.speak(u);
+    };
+  </script>
+</body>
+</html>
